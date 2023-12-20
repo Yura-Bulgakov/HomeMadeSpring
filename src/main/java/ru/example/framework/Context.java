@@ -1,10 +1,11 @@
 package ru.example.framework;
 
-import ru.example.annotations.Autowired;
-import ru.example.annotations.Component;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
+import ru.example.annotations.Autowired;
+import ru.example.annotations.Component;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Map;
@@ -40,23 +41,40 @@ public class Context {
                 .findFirst();
 
         if (annotatedConstructor.isPresent()) {
-            var constructor = annotatedConstructor.get();
-            var parameterTypes = constructor.getParameterTypes();
-            var params = Arrays.stream(parameterTypes)
-                    .map(
-                            cl -> {
-                                try {
-                                    return get(cl.getAnnotation(Component.class).value());
-                                } catch (Exception e) {
-                                    throw new RuntimeException("Такой тип нельзя подсавлять как параметр");
-                                }
-                            }
-
-                    ).collect(Collectors.toList());
-            return constructor.newInstance(params.toArray());
+            return getByParameterizedConstructor(annotatedConstructor.get());
         } else {
-            return clazz.getConstructor().newInstance();
+            return getByDefaultConstructor(clazz.getConstructor());
         }
+    }
+
+    private Object getByParameterizedConstructor(Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+        var parameterTypes = constructor.getParameterTypes();
+        var params = Arrays.stream(parameterTypes)
+                .map(clazz -> {
+                    try {
+                        return get(clazz.getAnnotation(Component.class).value());
+                    } catch (Exception e) {
+                        throw new RuntimeException("Такой тип нельзя подставлять как параметр");
+                    }
+                })
+                .collect(Collectors.toList());
+        return constructor.newInstance(params.toArray());
+    }
+
+    private Object getByDefaultConstructor(Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+        Object instance = constructor.newInstance();
+        Arrays.stream(instance.getClass().getDeclaredFields())
+                .filter(field -> field.isAnnotationPresent(Autowired.class))
+                .forEach(field -> {
+                    try {
+                        field.setAccessible(true);
+                        var fieldInstance = get(field.getType().getAnnotation(Component.class).value());
+                        field.set(instance, fieldInstance);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Нельзя подставить значение в данное поле" + field.getName());
+                    }
+                });
+        return instance;
     }
 
 }

@@ -5,13 +5,17 @@ import ru.example.annotations.Component;
 
 @Component("Car")
 public class Car {
+
+    @Autowired
     private Body body;
     private Engine engine;
 
-    @Autowired
     public Car(Body body, Engine engine) {
         this.body = body;
         this.engine = engine;
+    }
+
+    public Car() {
     }
 
     public Body getBody() {

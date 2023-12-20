@@ -1,6 +1,5 @@
 package ru.example.model;
 
-import ru.example.annotations.Autowired;
 import ru.example.annotations.Component;
 
 @Component("Engine")
