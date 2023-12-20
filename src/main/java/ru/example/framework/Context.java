@@ -9,10 +9,11 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.*;
 
 public class Context {
-    private Map<String, Class<?>> loadedClasses;
+    private final Map<String, Class<?>> loadedClasses;
 
     private Context(Map<String, Class<?>> loadedClasses) {
         this.loadedClasses = loadedClasses;
@@ -20,7 +21,9 @@ public class Context {
 
     public static Context load(String packageName) {
         Reflections reflections = new Reflections(packageName, new SubTypesScanner(false));
-        Map<String, Class<?>> clazzes = reflections.getSubTypesOf(Object.class).stream().filter(clazz -> clazz.isAnnotationPresent(Component.class)).collect(Collectors.toMap(clazz -> clazz.getAnnotation(Component.class).value(), clazz -> clazz));
+        Map<String, Class<?>> clazzes = reflections.getSubTypesOf(Object.class).stream()
+                .filter(clazz -> clazz.isAnnotationPresent(Component.class))
+                .collect(toMap(clazz -> clazz.getAnnotation(Component.class).value(), clazz -> clazz));
 
         return new Context(clazzes);
     }
@@ -35,8 +38,7 @@ public class Context {
         }
 
         Class<?> clazz = loadedClasses.get(className);
-        var constructors = clazz.getDeclaredConstructors();
-        var annotatedConstructor = Arrays.stream(constructors)
+        var annotatedConstructor = Arrays.stream(clazz.getDeclaredConstructors())
                 .filter(con -> con.isAnnotationPresent(Autowired.class))
                 .findFirst();
 
@@ -49,16 +51,14 @@ public class Context {
 
     private Object getByParameterizedConstructor(Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
         var parameterTypes = constructor.getParameterTypes();
-        var params = Arrays.stream(parameterTypes)
+        return constructor.newInstance(Arrays.stream(parameterTypes)
                 .map(clazz -> {
                     try {
                         return get(clazz.getAnnotation(Component.class).value());
                     } catch (Exception e) {
                         throw new RuntimeException("Такой тип нельзя подставлять как параметр");
                     }
-                })
-                .collect(Collectors.toList());
-        return constructor.newInstance(params.toArray());
+                }).toArray());
     }
 
     private Object getByDefaultConstructor(Constructor<?> constructor) throws InvocationTargetException, InstantiationException, IllegalAccessException {
