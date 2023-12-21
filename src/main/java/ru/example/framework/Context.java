@@ -10,7 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Map;
 
-import static java.util.stream.Collectors.*;
+import static java.util.stream.Collectors.toMap;
 
 public class Context {
     private final Map<String, Class<?>> loadedClasses;
@@ -68,8 +68,7 @@ public class Context {
                 .forEach(field -> {
                     try {
                         field.setAccessible(true);
-                        var fieldInstance = get(field.getType().getAnnotation(Component.class).value());
-                        field.set(instance, fieldInstance);
+                        field.set(instance, get(field.getType().getAnnotation(Component.class).value()));
                     } catch (Exception e) {
                         throw new RuntimeException("Нельзя подставить значение в данное поле" + field.getName());
                     }
